@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hive_test/screens/constants.dart';
 import 'package:hive/hive.dart';
-import 'login_page.dart'; // ✅ For navigation after successful registration
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -10,90 +10,98 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-  static const routename = '/signup'; // ✅ Route name (optional usage)
-  bool isChecked = false; // ✅ Checkbox state for terms & conditions
+  bool obscurePassword1 = true;
+  bool obscurePassword2 = true;
+  bool isSignupLoginTapped = false;
+  bool isChecked = false;
+  final formKey = GlobalKey<FormState>();
 
-  // ✅ Text controllers for input fields
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  // ✅ Password validation (min 8 chars, upper, lower, digit, special char)
-  bool isPasswordStrong(String password) {
-    RegExp pattern = RegExp(
-      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\\$&*~]).{8,}$',
-    );
-    return pattern.hasMatch(password);
-  }
-
-  // ✅ Snackbar to show messages
   void showMessage(String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // ✅ Main registration function
-  void registerUser() {
+  String? firstnameValidation(String? value) {
+    final firstName = _firstNameController.text.trim();
+    if (value == null || value.isEmpty) {
+      return ' Enter first Name';
+    } else if (firstName.length < 2) {
+      return 'At least 2 characters long';
+    }
+    return null;
+  }
+
+  String? lastnameValidation(String? value) {
+    final firstName = _lastNameController.text.trim();
+    if (value == null || value.isEmpty) {
+      return ' Enter Last Name';
+    } else if (firstName.length < 2) {
+      return 'At least 2 characters long';
+    }
+    return null;
+  }
+
+  String? emailValidation(String? value) {
+    final email = _emailController.text.trim();
+    Hive.box('usersBox');
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+
+    if (value == null || value.isEmpty) {
+      return 'Enter Email';
+    } else if (!emailRegex.hasMatch(email) || !email.endsWith('@gmail.com')) {
+      return 'Enter a Valid Gmail Address';
+    }
+    return null;
+  }
+
+  String? passwordvalidation(String? value) {
+    final password = _passwordController.text.trim();
+    if (value == null || value.isEmpty) {
+      return 'Enter Password';
+    } else if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    } else if (!RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$&*~]).{8,}$',
+    ).hasMatch(password)) {
+      return 'Password must contain at least one uppercase ,one lowercase letter,one digit,one special character.';
+    }
+    return null;
+  }
+
+  String? confirmPasswordValidation(String? value) {
+    final confirmPassword = _confirmPasswordController.text.trim();
+    if (value == null || value.isEmpty) {
+      return 'Re-enter Password';
+    } else if (confirmPassword != _passwordController.text.trim()) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  Future<void> registerUser() async {
     String email = _emailController.text.trim();
     String password = _passwordController.text;
     String confirmPassword = _confirmPasswordController.text;
 
-    // ✅ Email validation
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(email) || !email.endsWith('@gmail.com')) {
-      showMessage("Enter a valid Gmail address");
-      return;
-    }
-
-    // ✅ Check password strength
-    if (!isPasswordStrong(password)) {
-      showMessage(
-        "Password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.",
-      );
-      return;
-    }
-
-    // ✅ Check all fields
-    if (email.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty ||
-        _firstNameController.text.isEmpty ||
-        _lastNameController.text.isEmpty) {
-      showMessage("Please fill in all fields");
-      return;
-    }
-
-    // ✅ Check if checkbox is ticked
     if (!isChecked) {
       showMessage("You must agree to the terms and policy");
       return;
     }
-
-    // ✅ Confirm password match
-    if (password != confirmPassword) {
-      showMessage("Passwords do not match");
-      return;
-    }
-
-    // ✅ Check if user exists in Hive
     var box = Hive.box('usersBox');
     if (box.containsKey(email)) {
       showMessage("User already exists");
       return;
     }
-
-    // ✅ Save new user
-    box.put(email, password);
-
-    // ✅ Success message and navigate to login
+    await box.put(email, password);
     showMessage("User registered successfully");
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
+    Navigator.pushNamed(context, ('/login'));
   }
 
   @override
@@ -102,875 +110,358 @@ class _SignupPageState extends State<SignupPage> {
       backgroundColor: const Color(0xFF011B30),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 60),
-            const Text(
-              'Sign Up',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 35,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 30),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              const Text('Sign Up', style: kHeadingSignUpTextStyle),
+              const SizedBox(height: 30),
 
-            // ✅ Name fields
-            Row(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: TextField(
-                      controller: _firstNameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.black26,
-                        labelText: 'First Name',
-                        hintText: 'Enter First Name',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                            color: Colors.blueAccent,
-                            width: 2,
+              Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: TextFormField(
+                        validator: firstnameValidation,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        controller: _firstNameController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.black26,
+                          labelText: 'First Name',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter First Name',
+                          labelStyle: const TextStyle(color: Colors.white),
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                            color: Colors.lightBlue,
-                            width: 2,
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Colors.blueAccent,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: TextField(
-                      controller: _lastNameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.black26,
-                        labelText: 'Last Name',
-                        hintText: 'Enter Last Name',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                            color: Colors.blueAccent,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                            color: Colors.lightBlue,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
-
-            // ✅ Email
-            TextField(
-              controller: _emailController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.black26,
-                labelText: 'Email',
-                hintText: 'Enter your Email',
-                labelStyle: const TextStyle(color: Colors.white),
-                hintStyle: const TextStyle(color: Colors.white54),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(
-                    color: Colors.blueAccent,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(
-                    color: Colors.lightBlue,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-
-            // ✅ Password
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.black26,
-                labelText: 'Password',
-                hintText: 'Use Lower,Digit & Special Char(8+ chars)',
-                labelStyle: const TextStyle(color: Colors.white),
-                hintStyle: const TextStyle(color: Colors.white54),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(
-                    color: Colors.blueAccent,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(
-                    color: Colors.lightBlue,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ✅ Confirm Password
-            TextField(
-              controller: _confirmPasswordController,
-              obscureText: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.black26,
-                labelText: 'Confirm password',
-                hintText: 'Re-enter your Password',
-                labelStyle: const TextStyle(color: Colors.white),
-                hintStyle: const TextStyle(color: Colors.white54),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(
-                    color: Colors.blueAccent,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(
-                    color: Colors.lightBlue,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ✅ Terms checkbox
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      isChecked = !isChecked;
-                    });
-                  },
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: isChecked ? Colors.green : Colors.white,
-                        width: 2,
-                      ),
-                      color: isChecked ? Colors.green : Colors.transparent,
-                    ),
-                    child:
-                        isChecked
-                            ? const Icon(
-                              Icons.check,
-                              size: 18,
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
                               color: Colors.white,
-                            )
-                            : null,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Agree with our terms and policy',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: TextFormField(
+                        controller: _lastNameController,
+                        validator: lastnameValidation,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.black26,
+                          labelText: 'Last Name',
+                          hintText: 'Enter Last Name',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          labelStyle: const TextStyle(color: Colors.white),
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Colors.blueAccent,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
 
-            // ✅ Sign Up button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: registerUser,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0C13FF),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
+              TextFormField(
+                controller: _emailController,
+                validator: emailValidation,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.black26,
+                  labelText: 'Email',
+                  hintText: 'Enter your Email',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  labelStyle: const TextStyle(color: Colors.white),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(
+                      color: Colors.blueAccent,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Sign Up',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              ),
+              const SizedBox(height: 30),
+
+              TextFormField(
+                controller: _passwordController,
+                validator: passwordvalidation,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                obscureText: obscurePassword1,
+
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.black26,
+                  labelText: 'Password',
+                  hintText: 'Enter your Password',
+                  errorMaxLines: 2,
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  labelStyle: const TextStyle(color: Colors.white),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(
+                      color: Colors.blueAccent,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword1
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        // Toggle password visibility
+                        obscurePassword1 = !obscurePassword1;
+                      });
+                    },
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // ✅ Already registered
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Already have an account?',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/login');
-                  },
-                  child: const Text(
-                    'Sign In',
-                    style: TextStyle(
+              TextFormField(
+                controller: _confirmPasswordController,
+                validator: confirmPasswordValidation,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                obscureText: obscurePassword2,
+
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.black26,
+                  labelText: 'Confirm password',
+                  hintText: 'Re-enter your Password',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  labelStyle: const TextStyle(color: Colors.white),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(
                       color: Colors.blueAccent,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword2
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        obscurePassword2 = !obscurePassword2;
+                      });
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        isChecked = !isChecked;
+                      });
+                    },
+                    child: Container(
+                      width: 17,
+                      height: 17,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isChecked ? Colors.white : Colors.white,
+                          width: 2,
+                        ),
+                        color: isChecked ? Colors.green : Colors.transparent,
+                      ),
+                      child:
+                          isChecked
+                              ? const Icon(
+                                Icons.check,
+                                size: 10,
+                                color: Colors.white,
+                              )
+                              : null,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        isChecked = !isChecked;
+                      });
+                    },
+                    child: const Text(
+                      'Agree with our terms and policy',
+                      style: kAgreePolicy,
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 80, left: 80),
+                  child: ElevatedButton(
+                    onPressed:
+                        isSignupLoginTapped
+                            ? null
+                            : () async {
+                              if (formKey.currentState!.validate()) {
+                                setState(() {
+                                  isSignupLoginTapped = true;
+                                });
+                                await registerUser();
+                                await Future.delayed(
+                                  const Duration(seconds: 3),
+                                );
+                                setState(() {
+                                  isSignupLoginTapped = false;
+                                });
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0C13FF),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: SizedBox(
+                      height: 30,
+                      child: Center(
+                        child:
+                            isSignupLoginTapped
+                                ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+
+                                    strokeWidth: 3,
+                                  ),
+                                )
+                                : const Text(
+                                  'Sign Up',
+                                  style: kSignUpTextButton,
+                                ),
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Already have an account?',
+                    style: kAlreadyAccountTextStyle,
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/login');
+                    },
+                    child: const Text(
+                      'Sign Up',
+                      style: kAlreadyAccountSignUpTextButton,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Signup Requirements:',
+                style: kRequirementHeadingTextStyle,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• Full Name must include at least **two words** (e.g., John Doe)\n'
+                '• Email must be valid and end with "@gmail.com"\n'
+                '• Password must be at least 8 characters and include:\n'
+                '     - At least one uppercase letter\n'
+                '     - At least one lowercase letter\n'
+                '     - At least one digit\n'
+                '     - At least one special character (!@#\$&*~)\n'
+                '• Confirm Password must match the Password\n'
+                '• You must agree to the Terms and Privacy Policy checkbox',
+                style: kRequirementsTextStyle,
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
   }
 }
-// // ✅ NO DESIGN CHANGES – ONLY ADDED USER SAVE LOGIC AS MAP
-// import 'package:flutter/material.dart';
-// import 'package:hive/hive.dart';
-// import 'login_page.dart'; // ✅ For navigation after successful registration
-
-// class SignupPage extends StatefulWidget {
-//   const SignupPage({super.key});
-
-//   @override
-//   State<SignupPage> createState() => _SignupPageState();
-// }
-
-// class _SignupPageState extends State<SignupPage> {
-//   static const routename = '/signup';
-//   bool isChecked = false;
-
-//   final _firstNameController = TextEditingController();
-//   final _lastNameController = TextEditingController();
-//   final _emailController = TextEditingController();
-//   final _passwordController = TextEditingController();
-//   final _confirmPasswordController = TextEditingController();
-
-//   bool isPasswordStrong(String password) {
-//     RegExp pattern = RegExp(
-//       r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\\$&*~]).{8,}$',
-//     );
-//     return pattern.hasMatch(password);
-//   }
-
-//   void showMessage(String message) {
-//     ScaffoldMessenger.of(
-//       context,
-//     ).showSnackBar(SnackBar(content: Text(message)));
-//   }
-
-//   void registerUser() {
-//     String email = _emailController.text.trim();
-//     String password = _passwordController.text;
-//     String confirmPassword = _confirmPasswordController.text;
-//     String firstName = _firstNameController.text.trim();
-//     String lastName = _lastNameController.text.trim();
-
-//     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-//     if (!emailRegex.hasMatch(email) || !email.endsWith('@gmail.com')) {
-//       showMessage("Enter a valid Gmail address");
-//       return;
-//     }
-
-//     if (!isPasswordStrong(password)) {
-//       showMessage(
-//         "Password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.",
-//       );
-//       return;
-//     }
-
-//     if (email.isEmpty ||
-//         password.isEmpty ||
-//         confirmPassword.isEmpty ||
-//         firstName.isEmpty ||
-//         lastName.isEmpty) {
-//       showMessage("Please fill in all fields");
-//       return;
-//     }
-
-//     if (!isChecked) {
-//       showMessage("You must agree to the terms and policy");
-//       return;
-//     }
-
-//     if (password != confirmPassword) {
-//       showMessage("Passwords do not match");
-//       return;
-//     }
-
-//     var box = Hive.box('usersBox');
-//     if (box.containsKey(email)) {
-//       showMessage("User already exists");
-//       return;
-//     }
-
-//     // ✅ FIXED: Save user data as a Map instead of just password
-//     box.put(email, {
-//       'firstName': firstName,
-//       'lastName': lastName,
-//       'password': password,
-//     });
-
-//     showMessage("User registered successfully");
-//     Navigator.pushReplacement(
-//       context,
-//       MaterialPageRoute(builder: (_) => const LoginPage()),
-//     );
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: const Color(0xFF011B30),
-//       body: SingleChildScrollView(
-//         padding: const EdgeInsets.all(16),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             const SizedBox(height: 60),
-//             const Text(
-//               'Sign Up',
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 35,
-//                 fontWeight: FontWeight.bold,
-//               ),
-//             ),
-//             const SizedBox(height: 30),
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: Padding(
-//                     padding: const EdgeInsets.only(right: 8),
-//                     child: TextField(
-//                       controller: _firstNameController,
-//                       style: const TextStyle(color: Colors.white),
-//                       decoration: InputDecoration(
-//                         filled: true,
-//                         fillColor: Colors.black26,
-//                         labelText: 'First Name',
-//                         hintText: 'Enter First Name',
-//                         labelStyle: const TextStyle(color: Colors.white),
-//                         hintStyle: const TextStyle(color: Colors.white54),
-//                         enabledBorder: OutlineInputBorder(
-//                           borderSide: const BorderSide(
-//                             color: Colors.blueAccent,
-//                             width: 2,
-//                           ),
-//                           borderRadius: BorderRadius.circular(12),
-//                         ),
-//                         focusedBorder: OutlineInputBorder(
-//                           borderSide: const BorderSide(
-//                             color: Colors.lightBlue,
-//                             width: 2,
-//                           ),
-//                           borderRadius: BorderRadius.circular(12),
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: Padding(
-//                     padding: const EdgeInsets.only(left: 8),
-//                     child: TextField(
-//                       controller: _lastNameController,
-//                       style: const TextStyle(color: Colors.white),
-//                       decoration: InputDecoration(
-//                         filled: true,
-//                         fillColor: Colors.black26,
-//                         labelText: 'Last Name',
-//                         hintText: 'Enter Last Name',
-//                         labelStyle: const TextStyle(color: Colors.white),
-//                         hintStyle: const TextStyle(color: Colors.white54),
-//                         enabledBorder: OutlineInputBorder(
-//                           borderSide: const BorderSide(
-//                             color: Colors.blueAccent,
-//                             width: 2,
-//                           ),
-//                           borderRadius: BorderRadius.circular(12),
-//                         ),
-//                         focusedBorder: OutlineInputBorder(
-//                           borderSide: const BorderSide(
-//                             color: Colors.lightBlue,
-//                             width: 2,
-//                           ),
-//                           borderRadius: BorderRadius.circular(12),
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//             const SizedBox(height: 30),
-//             TextField(
-//               controller: _emailController,
-//               style: const TextStyle(color: Colors.white),
-//               decoration: InputDecoration(
-//                 filled: true,
-//                 fillColor: Colors.black26,
-//                 labelText: 'Email',
-//                 hintText: 'Enter your Email',
-//                 labelStyle: const TextStyle(color: Colors.white),
-//                 hintStyle: const TextStyle(color: Colors.white54),
-//                 enabledBorder: OutlineInputBorder(
-//                   borderSide: const BorderSide(
-//                     color: Colors.blueAccent,
-//                     width: 2,
-//                   ),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//                 focusedBorder: OutlineInputBorder(
-//                   borderSide: const BorderSide(
-//                     color: Colors.lightBlue,
-//                     width: 2,
-//                   ),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//               ),
-//             ),
-//             const SizedBox(height: 30),
-//             TextField(
-//               controller: _passwordController,
-//               obscureText: true,
-//               style: const TextStyle(color: Colors.white),
-//               decoration: InputDecoration(
-//                 filled: true,
-//                 fillColor: Colors.black26,
-//                 labelText: 'Password',
-//                 hintText: 'Use Lower,Digit & Special Char(8+ chars)',
-//                 labelStyle: const TextStyle(color: Colors.white),
-//                 hintStyle: const TextStyle(color: Colors.white54),
-//                 enabledBorder: OutlineInputBorder(
-//                   borderSide: const BorderSide(
-//                     color: Colors.blueAccent,
-//                     width: 2,
-//                   ),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//                 focusedBorder: OutlineInputBorder(
-//                   borderSide: const BorderSide(
-//                     color: Colors.lightBlue,
-//                     width: 2,
-//                   ),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//               ),
-//             ),
-//             const SizedBox(height: 20),
-//             TextField(
-//               controller: _confirmPasswordController,
-//               obscureText: true,
-//               style: const TextStyle(color: Colors.white),
-//               decoration: InputDecoration(
-//                 filled: true,
-//                 fillColor: Colors.black26,
-//                 labelText: 'Confirm password',
-//                 hintText: 'Re-enter your Password',
-//                 labelStyle: const TextStyle(color: Colors.white),
-//                 hintStyle: const TextStyle(color: Colors.white54),
-//                 enabledBorder: OutlineInputBorder(
-//                   borderSide: const BorderSide(
-//                     color: Colors.blueAccent,
-//                     width: 2,
-//                   ),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//                 focusedBorder: OutlineInputBorder(
-//                   borderSide: const BorderSide(
-//                     color: Colors.lightBlue,
-//                     width: 2,
-//                   ),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//               ),
-//             ),
-//             const SizedBox(height: 20),
-//             Row(
-//               children: [
-//                 GestureDetector(
-//                   onTap: () {
-//                     setState(() {
-//                       isChecked = !isChecked;
-//                     });
-//                   },
-//                   child: Container(
-//                     width: 24,
-//                     height: 24,
-//                     decoration: BoxDecoration(
-//                       border: Border.all(
-//                         color: isChecked ? Colors.green : Colors.white,
-//                         width: 2,
-//                       ),
-//                       color: isChecked ? Colors.green : Colors.transparent,
-//                     ),
-//                     child:
-//                         isChecked
-//                             ? const Icon(
-//                               Icons.check,
-//                               size: 18,
-//                               color: Colors.white,
-//                             )
-//                             : null,
-//                   ),
-//                 ),
-//                 const SizedBox(width: 10),
-//                 const Text(
-//                   'Agree with our terms and policy',
-//                   style: TextStyle(color: Colors.white, fontSize: 16),
-//                 ),
-//               ],
-//             ),
-//             const SizedBox(height: 30),
-//             SizedBox(
-//               width: double.infinity,
-//               child: ElevatedButton(
-//                 onPressed: registerUser,
-//                 style: ElevatedButton.styleFrom(
-//                   backgroundColor: const Color(0xFF0C13FF),
-//                   padding: const EdgeInsets.symmetric(vertical: 14),
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(12),
-//                   ),
-//                 ),
-//                 child: const Text(
-//                   'Sign Up',
-//                   style: TextStyle(
-//                     color: Colors.white,
-//                     fontSize: 18,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//               ),
-//             ),
-//             const SizedBox(height: 20),
-//             Row(
-//               mainAxisAlignment: MainAxisAlignment.center,
-//               children: [
-//                 const Text(
-//                   'Already have an account?',
-//                   style: TextStyle(color: Colors.white, fontSize: 16),
-//                 ),
-//                 TextButton(
-//                   onPressed: () {
-//                     Navigator.pushNamed(context, '/login');
-//                   },
-//                   child: const Text(
-//                     'Sign In',
-//                     style: TextStyle(
-//                       color: Colors.blueAccent,
-//                       fontSize: 16,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// // }import 'package:flutter/material.dart';
-// import 'package:hive/hive.dart';
-// import 'login_page.dart';
-// import 'package:flutter/material.dart';
-
-// class SignupPage extends StatefulWidget {
-//   const SignupPage({super.key});
-
-//   @override
-//   State<SignupPage> createState() => _SignupPageState();
-// }
-
-// class _SignupPageState extends State<SignupPage> {
-//   static const routename = '/signup';
-//   bool isChecked = false;
-
-//   final _firstNameController = TextEditingController();
-//   final _lastNameController = TextEditingController();
-//   final _emailController = TextEditingController();
-//   final _passwordController = TextEditingController();
-//   final _confirmPasswordController = TextEditingController();
-
-//   bool isPasswordStrong(String password) {
-//     RegExp pattern = RegExp(
-//       r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$&*~]).{8,}$',
-//     );
-//     return pattern.hasMatch(password);
-//   }
-
-//   void showMessage(String message) {
-//     ScaffoldMessenger.of(
-//       context,
-//     ).showSnackBar(SnackBar(content: Text(message)));
-//   }
-
-//   void registerUser() {
-//     String email = _emailController.text.trim();
-//     String password = _passwordController.text;
-//     String confirmPassword = _confirmPasswordController.text;
-
-//     if (_firstNameController.text.isEmpty ||
-//         _lastNameController.text.isEmpty ||
-//         email.isEmpty ||
-//         password.isEmpty ||
-//         confirmPassword.isEmpty) {
-//       showMessage("Please fill in all fields");
-//       return;
-//     }
-
-//     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-//     if (!emailRegex.hasMatch(email) || !email.endsWith('@gmail.com')) {
-//       showMessage("Enter a valid Gmail address");
-//       return;
-//     }
-
-//     if (!isPasswordStrong(password)) {
-//       showMessage("Weak password. Use upper, lower, digit & special char.");
-//       return;
-//     }
-
-//     if (password != confirmPassword) {
-//       showMessage("Passwords do not match");
-//       return;
-//     }
-
-//     if (!isChecked) {
-//       showMessage("You must agree to the terms");
-//       return;
-//     }
-
-//     final box = Hive.box('usersBox');
-//     if (box.containsKey(email)) {
-//       showMessage("User already exists");
-//       return;
-//     }
-
-//     // ✅ Store as a map
-//     box.put(email, {'password': password});
-
-//     showMessage("Registration successful");
-//     Navigator.pushReplacement(
-//       context,
-//       MaterialPageRoute(builder: (_) => const LoginPage()),
-//     );
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: const Color(0xFF011B30),
-//       body: SingleChildScrollView(
-//         padding: const EdgeInsets.all(16),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             const SizedBox(height: 60),
-//             const Text(
-//               'Sign Up',
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 35,
-//                 fontWeight: FontWeight.bold,
-//               ),
-//             ),
-//             const SizedBox(height: 30),
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: Padding(
-//                     padding: const EdgeInsets.only(right: 8),
-//                     child: TextField(
-//                       controller: _firstNameController,
-//                       style: const TextStyle(color: Colors.white),
-//                       decoration: _fieldDecoration(
-//                         'First Name',
-//                         'Enter First Name',
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: Padding(
-//                     padding: const EdgeInsets.only(left: 8),
-//                     child: TextField(
-//                       controller: _lastNameController,
-//                       style: const TextStyle(color: Colors.white),
-//                       decoration: _fieldDecoration(
-//                         'Last Name',
-//                         'Enter Last Name',
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//             const SizedBox(height: 30),
-//             TextField(
-//               controller: _emailController,
-//               style: const TextStyle(color: Colors.white),
-//               decoration: _fieldDecoration('Email', 'Enter your Email'),
-//             ),
-//             const SizedBox(height: 30),
-//             TextField(
-//               controller: _passwordController,
-//               obscureText: true,
-//               style: const TextStyle(color: Colors.white),
-//               decoration: _fieldDecoration(
-//                 'Password',
-//                 'Use Lower,Digit & Special Char(8+ chars)',
-//               ),
-//             ),
-//             const SizedBox(height: 20),
-//             TextField(
-//               controller: _confirmPasswordController,
-//               obscureText: true,
-//               style: const TextStyle(color: Colors.white),
-//               decoration: _fieldDecoration(
-//                 'Confirm password',
-//                 'Re-enter your Password',
-//               ),
-//             ),
-//             const SizedBox(height: 20),
-//             Row(
-//               children: [
-//                 GestureDetector(
-//                   onTap: () => setState(() => isChecked = !isChecked),
-//                   child: Container(
-//                     width: 24,
-//                     height: 24,
-//                     decoration: BoxDecoration(
-//                       border: Border.all(
-//                         color: isChecked ? Colors.green : Colors.white,
-//                         width: 2,
-//                       ),
-//                       color: isChecked ? Colors.green : Colors.transparent,
-//                     ),
-//                     child:
-//                         isChecked
-//                             ? const Icon(
-//                               Icons.check,
-//                               size: 18,
-//                               color: Colors.white,
-//                             )
-//                             : null,
-//                   ),
-//                 ),
-//                 const SizedBox(width: 10),
-//                 const Text(
-//                   'Agree with our terms and policy',
-//                   style: TextStyle(color: Colors.white, fontSize: 16),
-//                 ),
-//               ],
-//             ),
-//             const SizedBox(height: 30),
-//             SizedBox(
-//               width: double.infinity,
-//               child: ElevatedButton(
-//                 onPressed: registerUser,
-//                 style: ElevatedButton.styleFrom(
-//                   backgroundColor: const Color(0xFF0C13FF),
-//                   padding: const EdgeInsets.symmetric(vertical: 14),
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(12),
-//                   ),
-//                 ),
-//                 child: const Text(
-//                   'Sign Up',
-//                   style: TextStyle(
-//                     color: Colors.white,
-//                     fontSize: 18,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//               ),
-//             ),
-//             const SizedBox(height: 20),
-//             Row(
-//               mainAxisAlignment: MainAxisAlignment.center,
-//               children: [
-//                 const Text(
-//                   'Already have an account?',
-//                   style: TextStyle(color: Colors.white, fontSize: 16),
-//                 ),
-//                 TextButton(
-//                   onPressed: () => Navigator.pushNamed(context, '/login'),
-//                   child: const Text(
-//                     'Sign In',
-//                     style: TextStyle(
-//                       color: Colors.blueAccent,
-//                       fontSize: 16,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   InputDecoration _fieldDecoration(String label, String hint) {
-//     return InputDecoration(
-//       filled: true,
-//       fillColor: Colors.black26,
-//       labelText: label,
-//       hintText: hint,
-//       labelStyle: const TextStyle(color: Colors.white),
-//       hintStyle: const TextStyle(color: Colors.white54),
-//       enabledBorder: OutlineInputBorder(
-//         borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
-//         borderRadius: BorderRadius.circular(12),
-//       ),
-//       focusedBorder: OutlineInputBorder(
-//         borderSide: const BorderSide(color: Colors.lightBlue, width: 2),
-//         borderRadius: BorderRadius.circular(12),
-//       ),
-//     );
-//   }
-// }
